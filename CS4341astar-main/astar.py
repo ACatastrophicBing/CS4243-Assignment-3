@@ -497,6 +497,9 @@ def save_board(board, fn):
 #
 
 if __name__ == '__main__':
+    # Takes in time, heuristic, board_size
+    # EX : python astar.py 0.1666 5 180
+    # Runs for 10 seconds inclusive, board size of 180, heuristic 5
     runtime, given_heuristic, board_size = machine_args()
     use_demo = False
     # runtime in minutes, board_size to generate an n x n board
