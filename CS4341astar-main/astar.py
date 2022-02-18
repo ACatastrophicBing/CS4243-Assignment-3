@@ -132,7 +132,8 @@ def machine_args():
     parser.add_argument('size', help='The given n x n board size to run A* in')
 
     args = parser.parse_args()
-    return args.time, int(args.hueristic), args.size
+    print(args)
+    return float(args.time), int(args.heuristic), int(args.size)
 
 # Output function
 def output(score, actionNum, nodesExpanded, actionsList):
@@ -503,13 +504,22 @@ if __name__ == '__main__':
     end = start + runtime * 60
     curr_time = time.time()
     csv_data = []
-    while(curr_time <= end):
-        game_board = generate_board(board_size, board_size)
-        final_score, num_moves, nodes_expanded, all_moves, mem, demos, horizontal_distance, vertical_distance, euclidean_distance = astar(game_board, given_heuristic, use_demo)
-
-        csv_data.append([final_score,num_moves,nodes_expanded, horizontal_distance, vertical_distance, euclidean_distance])
-    print("The time has concluded with a total of %d runs over a total of %f minutes" %(len(csv_data), (time.time()-start))/60)
-    df = pd.DataFrame(csv_data)
+    print(start)
+    try:
+        while(curr_time <= end):
+            game_board = generate_board(board_size, board_size)
+            final_score, num_moves, nodes_expanded, all_moves, mem, demos, horizontal_distance, vertical_distance,\
+            euclidean_distance = astar(game_board, given_heuristic, use_demo)
+            csv_data.append([final_score,num_moves,nodes_expanded, horizontal_distance, vertical_distance,
+                             euclidean_distance])
+            curr_time = time.time()
+            print(curr_time)
+    except:
+        print("Somehow it broke and only ran for %f seconds" %(time.time()-start))
+    print("The time has concluded with a total of %d runs over a total of %f minutes" %(len(csv_data),
+                                                                                        (time.time()-start)/60))
+    df = pd.DataFrame(csv_data, columns=['final_score', 'num_moves', 'nodes_expanded',
+                                         'horizontal_distance', 'vertical_distance', 'euclidean_distance'])
     df.to_csv('test_csv.csv')
     print("The Process has finished")
 
