@@ -10,6 +10,8 @@ from queue import PriorityQueue
 import time
 import copy
 import glob
+import csv
+import pandas as pd
 
 # 
 #   Constants
@@ -123,6 +125,14 @@ def parse_args():
     args = parser.parse_args()
     return int(args.heuristic), args.option, args.d, args.w, args.l
 
+def machine_args():
+    parser = argparse.ArgumentParser(description='Evaluate the given board size for the given time using heuristic 5.')
+    parser.add_argument('time', help='Time to run in seconds')
+    parser.add_argument('heuristic', help='Select the heuristic to use [1-6]')
+    parser.add_argument('size', help='The given n x n board size to run A* in')
+
+    args = parser.parse_args()
+    return args.time, int(args.hueristic), args.size
 
 # Output function
 def output(score, actionNum, nodesExpanded, actionsList):
@@ -189,15 +199,26 @@ def heuristic6(vertical, horizontal):
 
 # Search for the best path on a board given a heuristic
 def astar(board, heuristic, use_demo):
+    """
+    Takes in board, heuristic, and if a* will use demolition rule
+    :param board:
+    :param heuristic:
+    :param use_demo:
+    :return: score, tot_moves, num_nodes_expanded, moves, memory, demos, horizontal_distance, vertical_distance,
+    euclidean_distance
+    """
     process = psutil.Process(os.getpid())
 
     # Try to find start and goal nodes
     try:
         start_pos = get_pos(board, START_NODE)
         goal_pos = get_pos(board, GOAL_NODE)
+        horizontal_distance = abs(goal_pos[0] - start_pos[0])
+        vertical_distance = abs(goal_pos[1] - start_pos[1])
+        euclidean_distance = math.sqrt(vertical_distance ** 2 + horizontal_distance ** 2)
     except:
         print("Unable to find required node on board. Aborting...")
-        return 0, 0, 0, [], process.memory_info(), 0
+        return 0, 0, 0, [], process.memory_info(), 0, 0, 0, 0
 
     start_move = Move(None, NORTH, start_pos, start_pos, board, 0)
     goal_move = 0
@@ -251,7 +272,7 @@ def astar(board, heuristic, use_demo):
 
     memory = process.memory_info()
 
-    return score, tot_moves, num_nodes_expanded, moves, memory, demos
+    return score, tot_moves, num_nodes_expanded, moves, memory, demos, horizontal_distance, vertical_distance, euclidean_distance
 
 
 # Returns all possible next moves on a board from a starting move
@@ -365,7 +386,7 @@ def print_current_state(board, move):
 
     print("0------------0")
     for y, col in enumerate(board):
-        print("|", end="")
+        print("|", end=" ")
         for x, row in enumerate(col):
             if move.to_pos[0] == x and move.to_pos[1] == y:
                 print(" " + "$" + " ", end="")
@@ -475,114 +496,131 @@ def save_board(board, fn):
 #
 
 if __name__ == '__main__':
+    runtime, given_heuristic, board_size = machine_args()
+    use_demo = False
+    # runtime in minutes, board_size to generate an n x n board
+    start = time.time()
+    end = start + runtime * 60
+    curr_time = time.time()
+    csv_data = []
+    while(curr_time <= end):
+        game_board = generate_board(board_size, board_size)
+        final_score, num_moves, nodes_expanded, all_moves, mem, demos, horizontal_distance, vertical_distance, euclidean_distance = astar(game_board, given_heuristic, use_demo)
 
-    # Get user input
-    given_heuristic, opt, use_demo, w, l = parse_args()
+        csv_data.append([final_score,num_moves,nodes_expanded, horizontal_distance, vertical_distance, euclidean_distance])
+    print("The time has concluded with a total of %d runs over a total of %f minutes" %(len(csv_data), (time.time()-start))/60)
+    df = pd.DataFrame(csv_data)
+    df.to_csv('test_csv.csv')
+    print("The Process has finished")
 
-    process = psutil.Process(os.getpid())
-
-    # Directory test
-    # Runs astar on all files in a directory. Records average time, memory, and nodes reached.
-    if os.path.isdir(opt):
-        dr = opt
-        timer_total = 0
-        mem_total = 0
-        total_nodes = 0
-        board_num = 0
-        total_moves = 0
-        board_files = [f for f in os.listdir(dr) if os.path.isfile(os.path.join(dr, f))]
-
-        for board_file in board_files:
-            print(f'\n/************** Testing board {board_file}: **************/')
-            game_board = process_board(dr + board_file)
-
-            print(f'Board {board_num}:\n{game_board}')
-            print(f'Heuristic: {given_heuristic}')
-
-            start = time.time()
-            initial_mem = process.memory_info()
-            final_score, num_moves, nodes_expanded, all_moves, mem, demos = astar(game_board, given_heuristic, use_demo)
-            output(final_score, num_moves, nodes_expanded, all_moves)
-            total_nodes += nodes_expanded
-            total_moves += num_moves
-
-            mem_used = (mem.rss - initial_mem.rss) / 1000000000
-            print("Memory used:", mem_used, "GB")
-            mem_total += mem_used
-            end = time.time()
-            elapsed_time = end - start
-            print("Elapsed time is: ", elapsed_time)
-            timer_total += elapsed_time
-
-            board_num += 1
-
-        print(f'\n/************** Final Results for Directory {dr} Boards: **************/')
-        print("Average memory:", mem_total / len(board_file), "GB")
-        print("Average time: ", timer_total / len(board_files))
-        print("Average nodes expanded is: ", total_nodes / len(board_files))
-        print("Average moves done: ", total_moves / len(board_files))
-
-    # Generate test
-    # Runs x tests on boards generated of n x n size
-    # Boards are written to the out/ directory
-    elif opt.isnumeric():
-
-        # Clear files
-        files = glob.glob('./out/*')
-        for f in files:
-            os.remove(f)
-
-        timer_total = 0
-        total_nodes = 0
-        mem_total = 0
-        total_moves = 0
-        number_of_cycles = int(opt)
-
-        for i in range(number_of_cycles):
-            game_board = generate_board(int(w), int(l))
-
-            print(f'\n/************** Board {i} **************/\n{game_board}')
-            print(f'Heuristic: {given_heuristic}')
-
-            start = time.time()
-            initial_mem = process.memory_info()
-            final_score, num_moves, nodes_expanded, all_moves, mem, demos = astar(game_board, given_heuristic, use_demo)
-            output(final_score, num_moves, nodes_expanded, all_moves)
-            total_nodes += nodes_expanded
-            total_moves += num_moves
-
-            mem_used = (mem.rss - initial_mem.rss) / 1000000000
-            print("Memory used:", mem_used, "GB")
-            mem_total += mem_used
-            end = time.time()
-            elapsed_time = end - start
-            print("Elapsed time is: ", elapsed_time)
-            timer_total += elapsed_time
-
-            save_board(game_board, f'out/test{i}.txt')
-
-        print(f'\n/************** Final Results for {int(opt)} {l}x{w} Boards: **************/')
-        print("Average memory:", mem_total / number_of_cycles, "GB")
-        print("Average time: ", timer_total / number_of_cycles)
-        print("Average nodes expanded is: ", total_nodes / number_of_cycles)
-        print("Average moves done: ", total_moves / int(opt))
-
-    # Single test 
-    else:
-        start = time.time()
-        initial_mem = process.memory_info()
-
-        game_board = process_board(opt)
-
-        print(f'\n/************** Board: {opt} **************/\n{game_board}')
-        print(f'Heuristic: {given_heuristic}')
-
-        final_score, total_num_moves, nodes_expanded, all_moves, mem, demos = \
-            astar(game_board, given_heuristic, use_demo)
-        output(final_score, total_num_moves, nodes_expanded, all_moves)
-
-        mem_used = (mem.rss - initial_mem.rss) / 1000000000
-        print("Memory used:", mem_used, "GB")
-        end = time.time()
-        elapsed_time = end - start
-        print("Elapsed time is:", elapsed_time)
+    # previous assignment
+    # # Get user input
+    # given_heuristic, opt, use_demo, w, l, time = parse_args()
+    #
+    # process = psutil.Process(os.getpid())
+    #
+    # # Directory test
+    # # Runs astar on all files in a directory. Records average time, memory, and nodes reached.
+    # if os.path.isdir(opt):
+    #     dr = opt
+    #     timer_total = 0
+    #     mem_total = 0
+    #     total_nodes = 0
+    #     board_num = 0
+    #     total_moves = 0
+    #     board_files = [f for f in os.listdir(dr) if os.path.isfile(os.path.join(dr, f))]
+    #
+    #     for board_file in board_files:
+    #         print(f'\n/************** Testing board {board_file}: **************/')
+    #         game_board = process_board(dr + board_file)
+    #
+    #         print(f'Board {board_num}:\n{game_board}')
+    #         print(f'Heuristic: {given_heuristic}')
+    #
+    #         start = time.time()
+    #         initial_mem = process.memory_info()
+    #         final_score, num_moves, nodes_expanded, all_moves, mem, demos = astar(game_board, given_heuristic, use_demo)
+    #         output(final_score, num_moves, nodes_expanded, all_moves)
+    #         total_nodes += nodes_expanded
+    #         total_moves += num_moves
+    #
+    #         mem_used = (mem.rss - initial_mem.rss) / 1000000000
+    #         print("Memory used:", mem_used, "GB")
+    #         mem_total += mem_used
+    #         end = time.time()
+    #         elapsed_time = end - start
+    #         print("Elapsed time is: ", elapsed_time)
+    #         timer_total += elapsed_time
+    #
+    #         board_num += 1
+    #
+    #     print(f'\n/************** Final Results for Directory {dr} Boards: **************/')
+    #     print("Average memory:", mem_total / len(board_file), "GB")
+    #     print("Average time: ", timer_total / len(board_files))
+    #     print("Average nodes expanded is: ", total_nodes / len(board_files))
+    #     print("Average moves done: ", total_moves / len(board_files))
+    #
+    # # Generate test
+    # # Runs x tests on boards generated of n x n size
+    # # Boards are written to the out/ directory
+    # elif opt.isnumeric():
+    #
+    #     # Clear files
+    #     files = glob.glob('./out/*')
+    #     for f in files:
+    #         os.remove(f)
+    #
+    #     timer_total = 0
+    #     total_nodes = 0
+    #     mem_total = 0
+    #     total_moves = 0
+    #     number_of_cycles = int(opt)
+    #
+    #     for i in range(number_of_cycles):
+    #         game_board = generate_board(int(w), int(l))
+    #
+    #         print(f'\n/************** Board {i} **************/\n{game_board}')
+    #         print(f'Heuristic: {given_heuristic}')
+    #
+    #         start = time.time()
+    #         initial_mem = process.memory_info()
+    #         final_score, num_moves, nodes_expanded, all_moves, mem, demos = astar(game_board, given_heuristic, use_demo)
+    #         output(final_score, num_moves, nodes_expanded, all_moves)
+    #         total_nodes += nodes_expanded
+    #         total_moves += num_moves
+    #
+    #         mem_used = (mem.rss - initial_mem.rss) / 1000000000
+    #         print("Memory used:", mem_used, "GB")
+    #         mem_total += mem_used
+    #         end = time.time()
+    #         elapsed_time = end - start
+    #         print("Elapsed time is: ", elapsed_time)
+    #         timer_total += elapsed_time
+    #
+    #         save_board(game_board, f'out/test{i}.txt')
+    #
+    #     print(f'\n/************** Final Results for {int(opt)} {l}x{w} Boards: **************/')
+    #     print("Average memory:", mem_total / number_of_cycles, "GB")
+    #     print("Average time: ", timer_total / number_of_cycles)
+    #     print("Average nodes expanded is: ", total_nodes / number_of_cycles)
+    #     print("Average moves done: ", total_moves / int(opt))
+    #
+    # # Single test
+    # else:
+    #     start = time.time()
+    #     initial_mem = process.memory_info()
+    #
+    #     game_board = process_board(opt)
+    #
+    #     print(f'\n/************** Board: {opt} **************/\n{game_board}')
+    #     print(f'Heuristic: {given_heuristic}')
+    #
+    #     final_score, total_num_moves, nodes_expanded, all_moves, mem, demos = \
+    #         astar(game_board, given_heuristic, use_demo)
+    #     output(final_score, total_num_moves, nodes_expanded, all_moves)
+    #
+    #     mem_used = (mem.rss - initial_mem.rss) / 1000000000
+    #     print("Memory used:", mem_used, "GB")
+    #     end = time.time()
+    #     elapsed_time = end - start
+    #     print("Elapsed time is:", elapsed_time)
