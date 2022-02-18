@@ -41,13 +41,15 @@ class MoveType(enum.Enum):
 
 class Move:
 
-    def __init__(self, move_type, facing, from_pos, to_pos, board_after_move, demos_used):
+    def __init__(self, move_type, facing, from_pos, to_pos, board_after_move, demos_used, horizontal_distance, vertical_distance):
         self.move_type = move_type
         self.facing = facing
         self.from_pos = from_pos
         self.to_pos = to_pos
         self.board = board_after_move
         self.demos_used = demos_used
+        self.horizontal_distance = horizontal_distance
+        self.vertical_distance = vertical_distance
 
     # Return the cost of a move
     def get_cost(self):
@@ -216,12 +218,11 @@ def astar(board, heuristic, use_demo):
         goal_pos = get_pos(board, GOAL_NODE)
         horizontal_distance = abs(goal_pos[0] - start_pos[0])
         vertical_distance = abs(goal_pos[1] - start_pos[1])
-        euclidean_distance = math.sqrt(vertical_distance ** 2 + horizontal_distance ** 2)
     except:
         print("Unable to find required node on board. Aborting...")
         return 0, 0, 0, [], process.memory_info(), 0, 0, 0, 0
 
-    start_move = Move(None, NORTH, start_pos, start_pos, board, 0)
+    start_move = Move(None, NORTH, start_pos, start_pos, board, 0, horizontal_distance, vertical_distance)
     goal_move = 0
     q = PriorityQueue()
     move_order = {}
@@ -242,7 +243,7 @@ def astar(board, heuristic, use_demo):
             goal_move = current_move
             break
 
-        for next_move in get_possible_moves(current_move, use_demo):
+        for next_move in get_possible_moves(current_move, use_demo, goal_pos):
             cost = next_move.get_cost() + cost_so_far[current_move]
 
             # Update total cost of the move
@@ -263,8 +264,13 @@ def astar(board, heuristic, use_demo):
     demos = goal_move.demos_used
     moves = []
 
+    horizontal_distance = []
+    vertical_distance = []
+
     while backtrack_move != start_move:
         moves.append(backtrack_move)
+        horizontal_distance.append(backtrack_move.horizontal_distance)
+        vertical_distance.append(backtrack_move.vertical_distance)
         backtrack_move = move_order[backtrack_move]
 
     score = 100 - cost_so_far[goal_move]
@@ -273,11 +279,11 @@ def astar(board, heuristic, use_demo):
 
     memory = process.memory_info()
 
-    return score, tot_moves, num_nodes_expanded, moves, memory, demos, horizontal_distance, vertical_distance, euclidean_distance
+    return score, tot_moves, num_nodes_expanded, moves, memory, demos, horizontal_distance, vertical_distance
 
 
 # Returns all possible next moves on a board from a starting move
-def get_possible_moves(move, use_demo):
+def get_possible_moves(move, use_demo, goal_pos):
     valid_moves = []
     board = move.board
 
@@ -285,22 +291,27 @@ def get_possible_moves(move, use_demo):
     forward_move = (move.to_pos[0] + move.facing[0], move.to_pos[1] + move.facing[1])
 
     if check_bounds(forward_move, board):
-        valid_moves.append(Move(MoveType.FORWARD, move.facing, move.to_pos, forward_move, board, move.demos_used))
+        horizontal_distance = abs(goal_pos[0] - forward_move[0])
+        vertical_distance = abs(goal_pos[1] - forward_move[1])
+        valid_moves.append(Move(MoveType.FORWARD, move.facing, move.to_pos, forward_move, board, move.demos_used, horizontal_distance, vertical_distance))
 
     # Check moves invalid after bash
     if move.move_type != MoveType.BASH:
-
+        horizontal_distance = abs(goal_pos[0] - move.to_pos[0])
+        vertical_distance = abs(goal_pos[1] - move.to_pos[1])
         # Check rotations
         valid_moves.append(
-            Move(MoveType.ROTATE_LEFT, move.turn("left"), move.to_pos, move.to_pos, board, move.demos_used))
+            Move(MoveType.ROTATE_LEFT, move.turn("left"), move.to_pos, move.to_pos, board, move.demos_used, horizontal_distance, vertical_distance))
         valid_moves.append(
-            Move(MoveType.ROTATE_RIGHT, move.turn("right"), move.to_pos, move.to_pos, board, move.demos_used))
+            Move(MoveType.ROTATE_RIGHT, move.turn("right"), move.to_pos, move.to_pos, board, move.demos_used, horizontal_distance, vertical_distance))
 
         # Check bash move
         bash_move = (move.from_pos[0] + move.facing[0] * 2, move.from_pos[1] + move.facing[1] * 2)
 
         if check_bounds(bash_move, board):
-            valid_moves.append(Move(MoveType.BASH, move.facing, move.to_pos, forward_move, board, move.demos_used))
+            horizontal_distance = abs(goal_pos[0] - forward_move[0])
+            vertical_distance = abs(goal_pos[1] - forward_move[1])
+            valid_moves.append(Move(MoveType.BASH, move.facing, move.to_pos, forward_move, board, move.demos_used, horizontal_distance, vertical_distance))
 
         # Check demo move
         if use_demo:
@@ -508,17 +519,16 @@ if __name__ == '__main__':
     curr_time = time.time()
     csv_data = []
     print(start)
-    try:
-        while(curr_time <= end):
-            game_board = generate_board(board_size, board_size)
-            final_score, num_moves, nodes_expanded, all_moves, mem, demos, horizontal_distance, vertical_distance,\
-            euclidean_distance = astar(game_board, given_heuristic, use_demo)
-            csv_data.append([final_score,num_moves,nodes_expanded, horizontal_distance, vertical_distance,
-                             euclidean_distance])
-            curr_time = time.time()
-            print(curr_time)
-    except:
-        print("Somehow it broke and only ran for %f seconds" %(time.time()-start))
+    # try:
+    while(curr_time <= end):
+        game_board = generate_board(board_size, board_size)
+        final_score, num_moves, nodes_expanded, all_moves, mem, demos, horizontal_distance, vertical_distance,\
+            = astar(game_board, given_heuristic, use_demo)
+        csv_data.append([final_score,num_moves,nodes_expanded, horizontal_distance, vertical_distance])
+        curr_time = time.time()
+        print(curr_time)
+    # except:
+    #     print("Somehow it broke and only ran for %f seconds" %(time.time()-start))
     print("The time has concluded with a total of %d runs over a total of %f minutes" %(len(csv_data),
                                                                                         (time.time()-start)/60))
     df = pd.DataFrame(csv_data, columns=['final_score', 'num_moves', 'nodes_expanded',
