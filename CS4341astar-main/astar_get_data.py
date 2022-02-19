@@ -536,7 +536,7 @@ if __name__ == '__main__':
                                                                                         (time.time()-start)/60))
     df = pd.DataFrame(csv_data, columns=['cost_from_node', 'num_moves', 'nodes_expanded',
                                          'horizontal_distance', 'vertical_distance', 'euclidean_distance'])
-    df.to_csv('test_csv.csv')
+    df.to_csv('Dillon3_csv.csv')
     print("The Process has finished")
 
     # previous assignment

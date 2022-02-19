@@ -13,7 +13,6 @@ import copy
 import glob
 import csv
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
 
 # 
 #   Constants
@@ -152,7 +151,7 @@ def output(score, actionNum, nodesExpanded, actionsList):
 #
 
 # Heuristic functions
-def getHeuristic(heuristicNum, goalSpace, nextSpace, model):
+def getHeuristic(heuristicNum, goalSpace, nextSpace):
     vertical = abs(goalSpace[1] - nextSpace[1])
     horizontal = abs(goalSpace[0] - nextSpace[0])
     switcher = {
@@ -162,7 +161,7 @@ def getHeuristic(heuristicNum, goalSpace, nextSpace, model):
         4: heuristic4(vertical, horizontal),
         5: heuristic5(vertical, horizontal),
         6: heuristic6(vertical, horizontal),
-        7: heuristic7(vertical, horizontal, model)
+        7: heuristic7(vertical, horizontal)
     }
 
     return switcher.get(heuristicNum, "Invalid heuristic")
@@ -200,14 +199,12 @@ def heuristic5(vertical, horizontal):
 def heuristic6(vertical, horizontal):
     return heuristic5(vertical, horizontal) * 3
 
-def heuristic7(vertical, horizontal, model):
+def heuristic7(vertical, horizontal):
     euclidean_distance = math.sqrt(vertical ** 2 + horizontal ** 2)
-    features = pd.DataFrame({"horizontal_distance": [horizontal],
-                            "vertical_distance": [vertical],
-                            "euclidean_distance": [euclidean_distance]})
-    pred = model.predict(features)
-    print("PREDICTION = " + str(pred[0]))
-    return pred[0]
+    cost_from_node = -958.7543 * horizontal + -957.5059 * vertical + 710.8564 * \
+        euclidean_distance + 1204.5877
+    return int(cost_from_node)
+
 
 
 # Search for the best path on a board given a heuristic
@@ -221,13 +218,6 @@ def astar(board, heuristic, use_demo, csv_data=None):
     euclidean_distance
     """
     process = psutil.Process(os.getpid())
-
-    # Train heuristic model for heuristic #7
-    data = pd.read_csv("Dillon2_csv.csv")
-    yTrain = data.cost_from_node.values
-    xTrain = data.get(["horizontal_distance", "vertical_distance", "euclidean_distance"])
-    model = RandomForestRegressor()
-    model.fit(xTrain, yTrain)
 
     # Try to find start and goal nodes
     try:
@@ -269,7 +259,7 @@ def astar(board, heuristic, use_demo, csv_data=None):
                 cost_so_far[next_move] = cost
 
                 # Update priority queue and move order
-                priority = cost + getHeuristic(heuristic, goal_pos, next_move.to_pos, model)
+                priority = cost + getHeuristic(heuristic, goal_pos, next_move.to_pos)
                 q.put((priority, next_move))
                 move_order[next_move] = current_move
 
