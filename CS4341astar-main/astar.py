@@ -210,6 +210,8 @@ def heuristic7(vertical, horizontal, model):
     return pred[0]
 
 
+
+
 # Search for the best path on a board given a heuristic
 def astar(board, heuristic, use_demo, csv_data=None):
     """

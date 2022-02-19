@@ -161,7 +161,8 @@ def getHeuristic(heuristicNum, goalSpace, nextSpace):
         3: heuristic3(vertical, horizontal),
         4: heuristic4(vertical, horizontal),
         5: heuristic5(vertical, horizontal),
-        6: heuristic6(vertical, horizontal)
+        6: heuristic6(vertical, horizontal),
+        7: heuristic7(vertical, horizontal)
     }
 
     return switcher.get(heuristicNum, "Invalid heuristic")
@@ -198,6 +199,11 @@ def heuristic5(vertical, horizontal):
 # Heuristic #6, non-admissible heuristic
 def heuristic6(vertical, horizontal):
     return heuristic5(vertical, horizontal) * 3
+
+# Heuristic #7, Weka model
+def heuristic7(vertical, horizontal):
+    euclidean_distance = math.sqrt(vertical ** 2 + horizontal ** 2)
+    return vertical * 46.2915 + horizontal * 53.0669 + euclidean_distance * 239.3591
 
 
 # Search for the best path on a board given a heuristic
