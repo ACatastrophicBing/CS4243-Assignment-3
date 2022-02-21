@@ -1,5 +1,5 @@
 # CS4341astar
-CS4341 Project 1 - A\* Search
+CS4341 Project 3 - A\* Search with Machine Learning
 
 ## Running the Project
 
