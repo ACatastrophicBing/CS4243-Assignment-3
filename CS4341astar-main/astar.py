@@ -39,15 +39,13 @@ class MoveType(enum.Enum):
 
 class Move:
 
-    def __init__(self, move_type, facing, from_pos, to_pos, board_after_move, demos_used, horizontal_distance, vertical_distance):
+    def __init__(self, move_type, facing, from_pos, to_pos, board_after_move, demos_used):
         self.move_type = move_type
         self.facing = facing
         self.from_pos = from_pos
         self.to_pos = to_pos
         self.board = board_after_move
         self.demos_used = demos_used
-        self.horizontal_distance = horizontal_distance
-        self.vertical_distance = vertical_distance
 
     # Return the cost of a move
     def get_cost(self):
@@ -276,27 +274,21 @@ def get_possible_moves(move, use_demo, goal_pos):
     forward_move = (move.to_pos[0] + move.facing[0], move.to_pos[1] + move.facing[1])
 
     if check_bounds(forward_move, board):
-        horizontal_distance = abs(goal_pos[0] - forward_move[0])
-        vertical_distance = abs(goal_pos[1] - forward_move[1])
-        valid_moves.append(Move(MoveType.FORWARD, move.facing, move.to_pos, forward_move, board, move.demos_used, horizontal_distance, vertical_distance))
+        valid_moves.append(Move(MoveType.FORWARD, move.facing, move.to_pos, forward_move, board, move.demos_used))
 
     # Check moves invalid after bash
     if move.move_type != MoveType.BASH:
-        horizontal_distance = abs(goal_pos[0] - move.to_pos[0])
-        vertical_distance = abs(goal_pos[1] - move.to_pos[1])
         # Check rotations
         valid_moves.append(
-            Move(MoveType.ROTATE_LEFT, move.turn("left"), move.to_pos, move.to_pos, board, move.demos_used, horizontal_distance, vertical_distance))
+            Move(MoveType.ROTATE_LEFT, move.turn("left"), move.to_pos, move.to_pos, board, move.demos_used))
         valid_moves.append(
-            Move(MoveType.ROTATE_RIGHT, move.turn("right"), move.to_pos, move.to_pos, board, move.demos_used, horizontal_distance, vertical_distance))
+            Move(MoveType.ROTATE_RIGHT, move.turn("right"), move.to_pos, move.to_pos, board, move.demos_used))
 
         # Check bash move
         bash_move = (move.from_pos[0] + move.facing[0] * 2, move.from_pos[1] + move.facing[1] * 2)
 
         if check_bounds(bash_move, board):
-            horizontal_distance = abs(goal_pos[0] - forward_move[0])
-            vertical_distance = abs(goal_pos[1] - forward_move[1])
-            valid_moves.append(Move(MoveType.BASH, move.facing, move.to_pos, forward_move, board, move.demos_used, horizontal_distance, vertical_distance))
+            valid_moves.append(Move(MoveType.BASH, move.facing, move.to_pos, forward_move, board, move.demos_used))
 
         # Check demo move
         if use_demo:
